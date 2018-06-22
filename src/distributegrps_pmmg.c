@@ -565,6 +565,7 @@ int PMMG_pack_nodeCommunicators(PMMG_pParMesh parmesh) {
 
     if ( i!=k ) {
       parmesh->ext_node_comm[i].nitem          = ext_node_comm->nitem;
+      parmesh->ext_node_comm[i].color_in       = ext_node_comm->color_in;
       parmesh->ext_node_comm[i].color_out      = ext_node_comm->color_out;
       parmesh->ext_node_comm[i].int_comm_index = ext_node_comm->int_comm_index;
     }

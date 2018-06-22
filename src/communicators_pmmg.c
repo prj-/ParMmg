@@ -840,7 +840,7 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
     }
   }
   /* Fill the missing pointer toward the empty external communicators */
-  next_comm = 0;
+//  next_comm = 0;
   for ( k=0; k<parmesh->nprocs; ++k ) {
     if ( !comm_ptr[k] ) {
 
