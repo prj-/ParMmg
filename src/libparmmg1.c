@@ -559,7 +559,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   }
 
   PMMG_outqua( parmesh );
-  PMMG_prilen( parmesh );
+  if ( parmesh->listgrp[0].mesh->info.imprim > 4 )
+    PMMG_prilen( parmesh,1);
 
   ier = PMMG_packParMesh(parmesh);
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );

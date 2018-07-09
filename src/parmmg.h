@@ -193,7 +193,7 @@ int PMMG_scaleMesh(MMG5_pMesh mesh,MMG5_pSol met);
 
 /* Quality */
 int PMMG_outqua( PMMG_pParMesh parmesh );
-int PMMG_prilen( PMMG_pParMesh parmesh );
+int PMMG_prilen( PMMG_pParMesh parmesh,char);
 
 void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val );
 #ifdef __cplusplus

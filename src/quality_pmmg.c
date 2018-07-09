@@ -8,9 +8,9 @@ typedef struct {
 
 typedef struct {
   double min;
-  int amin, bmin;
+  int amin, bmin,grp_min,cpu_min;
   double max;
-  int amax, bmax;
+  int amax, bmax,grp_max,cpu_max;
 } min_max_t;
 
 static void PMMG_min_iel_compute( void* in1, void* out1, int *len, MPI_Datatype *dptr )
@@ -43,14 +43,18 @@ static void PMMG_min_max_compute( void* in1, void* out1, int *len, MPI_Datatype 
   (void)dptr;
   for ( i = 0; i < *len; i++ ) {
     if ( in[ i ].min < out[ i ].min ) {
-      out[ i ].min = in[ i ].min;
-      out[ i ].amin = in[ i ].amin;
-      out[ i ].bmin = in[ i ].bmin;
+      out[ i ].min     = in[ i ].min;
+      out[ i ].amin    = in[ i ].amin;
+      out[ i ].bmin    = in[ i ].bmin;
+      out[ i ].grp_min = in[ i ].grp_min;
+      out[ i ].cpu_min = in[ i ].cpu_min;
     }
     if ( in[ i ].max > out[ i ].max ) {
-      out[ i ].max = in[ i ].max;
-      out[ i ].amax = in[ i ].amax;
-      out[ i ].bmax = in[ i ].bmax;
+      out[ i ].max     = in[ i ].max;
+      out[ i ].amax    = in[ i ].amax;
+      out[ i ].bmax    = in[ i ].bmax;
+      out[ i ].grp_max = in[ i ].grp_max;
+      out[ i ].cpu_max = in[ i ].cpu_max;
     }
   }
 }
@@ -150,6 +154,7 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
     fprintf(stdout,"\n  -- PARALLEL MESH QUALITY");
 
     grp = &parmesh->listgrp[ 0 ];
+#warning to change with parmesh->imprim once the leadbalanding branch will be merged
     if ( grp->mesh->info.imprim )
       fprintf( stdout," (LES)" );
     fprintf( stdout, "  %d\n", ne_result );
@@ -178,12 +183,14 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
 
 /**
  * \param parmesh pointer toward a parmesh structure
+ * \param metRidTyp Type of storage of ridges metrics: 0 for classic storage,
+ * 1 for special storage.
  *
  * \return 1 if success, 0 if fail;
  *
  * Print edge length quality histogram among all group meshes and all processors
  */
-int PMMG_prilen( PMMG_pParMesh parmesh )
+int PMMG_prilen( PMMG_pParMesh parmesh,char metRidTyp)
 {
   PMMG_pGrp grp;
   double *bd;
@@ -193,16 +200,36 @@ int PMMG_prilen( PMMG_pParMesh parmesh )
   int amin, amin_cur, bmin, bmin_cur, amax, amax_cur, bmax, bmax_cur;
   int nullEdge, nullEdge_cur, nullEdge_result;
   int hl[ 9 ], hl_cur[ 9 ], hl_result[ 9 ];
-  char metRidTyp = 0;
-  int i;
+  int i,grp_min,grp_max;
+  MPI_Op        min_max_op;
+  MPI_Datatype  mpi_min_max_t;
+  MPI_Datatype types[ 10 ] = { MPI_DOUBLE, MPI_INT, MPI_INT, MPI_INT, MPI_INT,
+                              MPI_DOUBLE, MPI_INT, MPI_INT, MPI_INT, MPI_INT};
+  min_max_t min_max, min_max_result = { DBL_MAX, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+  MPI_Aint disps[ 10 ] = { offsetof( min_max_t, min ),
+                          offsetof( min_max_t, amin ),
+                          offsetof( min_max_t, bmin ),
+                          offsetof( min_max_t, grp_min ),
+                          offsetof( min_max_t, cpu_min ),
+                          offsetof( min_max_t, max ),
+                          offsetof( min_max_t, bmax ),
+                          offsetof( min_max_t, bmax ),
+                          offsetof( min_max_t, grp_max ),
+                          offsetof( min_max_t, cpu_max )};
+  int lens[ 10 ] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
+
 
   nullEdge = 0;
   avlen = 0;
   ned = 0;
   lmin = DBL_MAX;
   lmax = 0;
+
   for ( i = 0; i < 9; ++i )
     hl[ i ] = 0;
+
+  grp_min = grp_max = 0;
+
   for ( i = 0; i < parmesh->ngrp; ++i ) {
     grp  = &parmesh->listgrp[ i ];
     MMG3D_computePrilen( grp->mesh, grp->met, &avlen_cur, &lmin_cur, &lmax_cur,
@@ -213,14 +240,16 @@ int PMMG_prilen( PMMG_pParMesh parmesh )
     avlen += avlen_cur;
     ned += ned_cur;
     if ( lmin_cur < lmin ) {
-      lmin = lmin_cur;
-      amin = amin_cur;
-      bmin = bmin_cur;
+      lmin    = lmin_cur;
+      amin    = amin_cur;
+      bmin    = bmin_cur;
+      grp_min = i;
     }
     if ( lmax_cur > lmax ) {
-      lmax = lmax_cur;
-      amax = amax_cur;
-      bmax = bmax_cur;
+      lmax    = lmax_cur;
+      amax    = amax_cur;
+      bmax    = bmax_cur;
+      grp_max = i;
     }
     for ( i = 0; i < 9; ++i )
       hl[ i ] += hl_cur[ i ];
@@ -232,36 +261,57 @@ int PMMG_prilen( PMMG_pParMesh parmesh )
   for ( i = 0; i < 9; ++i )
     MPI_Reduce( hl + i, hl_result + i, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
 
-  MPI_Op        min_max_op;
-  MPI_Datatype  mpi_min_max_t;
-  MPI_Datatype types[ 6 ] = { MPI_DOUBLE, MPI_INT, MPI_INT,
-                              MPI_DOUBLE, MPI_INT, MPI_INT };
-  min_max_t min_max, min_max_result = { DBL_MAX, 0, 0, 0, 0, 0 };
-  MPI_Aint disps[ 6 ] = { offsetof( min_max_t, min ),
-                          offsetof( min_max_t, amin ),
-                          offsetof( min_max_t, bmin ),
-                          offsetof( min_max_t, max ),
-                          offsetof( min_max_t, bmax ),
-                          offsetof( min_max_t, bmax ) };
-  int lens[ 6 ] = { 1, 1, 1, 1, 1, 1 };
-  MPI_Type_create_struct( 6, lens, disps, types, &mpi_min_max_t );
+  MPI_Type_create_struct( 10, lens, disps, types, &mpi_min_max_t );
   MPI_Type_commit( &mpi_min_max_t );
   MPI_Op_create( PMMG_min_max_compute, 1, &min_max_op );
-  min_max.min = lmin;
-  min_max.amin = amin;
-  min_max.bmin = bmin;
-  min_max.max = lmax;
-  min_max.amax = amax;
-  min_max.bmax = bmax;
+  min_max.min     = lmin;
+  min_max.amin    = amin;
+  min_max.bmin    = bmin;
+  min_max.grp_min = grp_min;
+  min_max.cpu_min = parmesh->myrank;
+
+  min_max.max     = lmax;
+  min_max.amax    = amax;
+  min_max.bmax    = bmax;
+  min_max.grp_max = grp_max;
+  min_max.cpu_max = parmesh->myrank;
+
   MPI_Reduce( &min_max, &min_max_result, 1, mpi_min_max_t, min_max_op, 0, parmesh->comm );
   MPI_Op_free( &min_max_op );
 
-  if ( parmesh->myrank == 0 )
-    _MMG5_displayLengthHisto( parmesh->listgrp[ 0 ].mesh, ned_result, &avlen_result,
-                              min_max_result.amin, min_max_result.bmin,
-                              min_max_result.min, min_max_result.amax,
-                              min_max_result.bmax, min_max_result.max,
-                              nullEdge_result, bd, hl_result, 1 );
+  if ( parmesh->myrank == 0 ) {
+    avlen_result = avlen_result/(double)ned_result;
+
+    fprintf(stdout,"\n  -- RESULTING EDGE LENGTHS  %d\n",ned);
+    fprintf(stdout,"     AVERAGE LENGTH         %12.4f\n",avlen_result);
+
+    fprintf(stdout,"     SMALLEST EDGE LENGTH   %12.4f   ",min_max_result.min);
+    if ( parmesh->ngrp>1 )
+      fprintf( stdout, "GROUP %d - ",min_max_result.grp_min);
+
+    if ( parmesh->nprocs>1 )
+      fprintf( stdout, "PROC %d - ",min_max_result.cpu_min);
+
+    fprintf( stdout,"EDGE %6d %6d\n",min_max_result.amin,min_max_result.bmin);
+
+    fprintf(stdout,"     LARGEST EDGE LENGTH   %12.4f   ",min_max_result.max);
+    if ( parmesh->ngrp>1 )
+      fprintf( stdout, "GROUP %d - ",min_max_result.grp_max);
+
+    if ( parmesh->nprocs>1 )
+      fprintf( stdout, "PROC %d - ",min_max_result.cpu_max);
+
+    fprintf( stdout,"EDGE %6d %6d\n",min_max_result.amax,min_max_result.bmax);
+
+#warning to change with parmesh->imprim once the leadbalanding branch will be merged
+    _MMG5_displayLengthHisto_internal( parmesh->listgrp[ 0 ].mesh, ned_result,
+                                       min_max_result.amin, min_max_result.bmin,
+                                       min_max_result.min, min_max_result.amax,
+                                       min_max_result.bmax, min_max_result.max,
+                                       nullEdge_result, bd, hl_result, 1,
+                                       parmesh->listgrp[0].mesh->info.imprim);
+  }
+
   return 1;
 }
 
