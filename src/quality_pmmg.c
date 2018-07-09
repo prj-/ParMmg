@@ -69,7 +69,7 @@ static void PMMG_min_max_compute( void* in1, void* out1, int *len, MPI_Datatype 
 int PMMG_outqua( PMMG_pParMesh parmesh )
 {
   PMMG_pGrp grp;
-  int i, j, iel_grp;
+  int i, j, ier, ieresult, iel_grp;
   int ne, ne_cur, ne_result;
   double max, max_cur, max_result;
   double avg, avg_cur, avg_result;
@@ -89,6 +89,8 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
                           offsetof( min_iel_t, iel_grp ),
                           offsetof( min_iel_t, cpu ) };
   int lens[ 4 ] = { 1, 1, 1, 1 };
+
+  ier = 1;
 
   // Calculate the quality values for local process
   iel_grp = 0;
@@ -170,15 +172,17 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
 
     fprintf( stdout,"ELT %d)\n", min_iel_result.iel );
 
-    if ( MMG3D_displayQualHisto_internal( ne_result, max_result, avg_result,
+    if ( !MMG3D_displayQualHisto_internal( ne_result, max_result, avg_result,
                                           min_iel_result.min, min_iel_result.iel,
                                           good_result, med_result, his_result,
                                           nrid_result,grp->mesh->info.optimLES,
                                           grp->mesh->info.imprim ) )
-      return 0;
+      ier = 0;
   }
 
-  return 1;
+  MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
+
+  return ieresult;
 }
 
 /**

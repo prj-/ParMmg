@@ -559,7 +559,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   }
 
   PMMG_outqua( parmesh );
-  if ( parmesh->listgrp[0].mesh->info.imprim > 4 )
+#warning THIS IF HAS TO BE REENABLED. FOR IT TO BE UNCOMMENTED AGAIN, SOME OF THE CHANGES IN THE LOAD BALANCING BRANCH ARE REQUIRED
+//  if ( parmesh->listgrp[0].mesh->info.imprim > 4 )
     PMMG_prilen( parmesh,1);
 
   ier = PMMG_packParMesh(parmesh);
