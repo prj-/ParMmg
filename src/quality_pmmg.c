@@ -238,7 +238,7 @@ int PMMG_prilen( PMMG_pParMesh parmesh,char metRidTyp)
     grp  = &parmesh->listgrp[ i ];
     MMG3D_computePrilen( grp->mesh, grp->met, &avlen_cur, &lmin_cur, &lmax_cur,
                          &ned_cur, &amin_cur, &bmin_cur, &amax_cur, &bmax_cur,
-                         &nullEdge_cur, metRidTyp, &bd, hl );
+                         &nullEdge_cur, metRidTyp, &bd, hl_cur );
 
     nullEdge += nullEdge_cur;
     avlen += avlen_cur;
