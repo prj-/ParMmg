@@ -216,7 +216,7 @@ int PMMG_prilen( PMMG_pParMesh parmesh,char metRidTyp)
                           offsetof( min_max_t, grp_min ),
                           offsetof( min_max_t, cpu_min ),
                           offsetof( min_max_t, max ),
-                          offsetof( min_max_t, bmax ),
+                          offsetof( min_max_t, amax ),
                           offsetof( min_max_t, bmax ),
                           offsetof( min_max_t, grp_max ),
                           offsetof( min_max_t, cpu_max )};
