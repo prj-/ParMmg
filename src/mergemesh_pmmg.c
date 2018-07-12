@@ -725,36 +725,42 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
   /** Step 1: Merge interface points from all meshes into mesh0->points */
   if ( !PMMG_mergeGrps_interfacePoints(parmesh) ) goto fail_comms;
 
+printf("\n\n\n\nA"); PMMG_outqua( parmesh ); printf("\n\n\n\n");
   for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
     grp = &listgrp[imsh];
+printf("\n\n\n\n1"); _MMG3D_outqua( parmesh->listgrp[0].mesh, parmesh->listgrp[0].met ); printf("\n\n\n\n");
 
     /** Step 2: Merge internal points of the mesh mesh into the mesh0 mesh */
     if ( !PMMG_mergeGrpJinI_internalPoints(&listgrp[0],grp) )
       goto fail_comms;
 
+printf("\n\n\n\n2"); _MMG3D_outqua( parmesh->listgrp[0].mesh, parmesh->listgrp[0].met ); printf("\n\n\n\n");
     /* Step 3: Add the interfaces tetra of the imsh mesh to the mesh0 mesh */
     if ( !PMMG_mergeGrpJinI_interfaceTetra(parmesh,&listgrp[0],grp) )
       goto fail_comms;
+printf("\n\n\n\n3"); _MMG3D_outqua( parmesh->listgrp[0].mesh, parmesh->listgrp[0].met ); printf("\n\n\n\n");
 
     /** Step 4: Merge internal tetras of the imsh mesh into the mesh0 mesh */
     if ( !PMMG_mergeGrpJinI_internalTetra(&listgrp[0],grp) )
       goto fail_comms;
+printf("\n\n\n\n4"); _MMG3D_outqua( parmesh->listgrp[0].mesh, parmesh->listgrp[0].met ); printf("\n\n\n\n");
 
     /* Free merged mesh and increase mesh0->memMax*/
     mesh0->memMax += grp->mesh->memCur;
     PMMG_grp_free(parmesh,grp);
   }
   assert ( mesh0->memMax+parmesh->memMax<=parmesh->memGloMax );
+printf("\n\n\n\n5"); _MMG3D_outqua( parmesh->listgrp[0].mesh, parmesh->listgrp[0].met ); printf("\n\n\n\n");
 
   /** Step 5: Update the communicators */
   if ( !PMMG_mergeGrps_communicators(parmesh) ) goto fail_comms;
 
   _MMG5_SAFE_REALLOC(parmesh->listgrp,1,PMMG_Grp,"(mergeGrps) listgrp",0);
   parmesh->ngrp = 1;
+printf("\n\n\n\nB"); PMMG_outqua( parmesh ); printf("\n\n\n\n");
 
   /** Step 6: Update tag on points, tetra */
   if ( !PMMG_updateTag(parmesh) ) goto fail_comms;
-
 
   return 1;
 
