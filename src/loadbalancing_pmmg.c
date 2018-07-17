@@ -64,7 +64,6 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
     ier=0;
     goto reduce;
   }
-printf("\n\n\n\na loadBalancing post count_parBdy"); PMMG_outqua( parmesh ); printf("\n\n\n\n");
 
   /** Split the ngrp groups of listgrp into a higher number of groups */
   ier = PMMG_split_n2mGrps(parmesh,METIS_TARGET_MESH_SIZE,1);
@@ -72,27 +71,7 @@ printf("\n\n\n\na loadBalancing post count_parBdy"); PMMG_outqua( parmesh ); pri
     fprintf(stderr,"\n  ## Problem when splitting into a higher number of groups.\n");
     goto reduce;
   }
-printf("\n\n\n\nb loadBalancing post PMMG_split_n2mGrps"); PMMG_outqua( parmesh ); printf("\n\n\n\n");
 
-for ( int i = 0; i < parmesh->ngrp; ++i ) {
-  MMG5_pMesh msh = parmesh->listgrp[ i ].mesh;
-  for ( int t = 1; t <= msh->ne; ++t ) {
-    if ( !msh->tetra[t].xt)
-      continue;
-    MMG5_pxTetra pxt = &msh->xtetra[msh->tetra[t].xt];
-    for ( int tt=0; tt<4; ++tt ) {
-      pxt->ftag[tt] &= ~MG_REQ;
-      pxt->ftag[tt] &= ~MG_BDY;
-      pxt->ftag[tt] &= ~MG_PARBDY;
-    }
-
-    for ( int tt=0; tt<6; ++tt ) {
-      pxt->tag[tt] &= ~MG_REQ;
-      pxt->tag[tt] &= ~MG_BDY;
-      pxt->tag[tt] &= ~MG_PARBDY;
-    }
-  }
-}
   /** Distribute the groups over the processor to load balance the meshes */
   if ( !PMMG_distribute_grps(parmesh) ) {
     fprintf(stderr,"\n  ## Group distribution problem.\n");
@@ -100,15 +79,12 @@ for ( int i = 0; i < parmesh->ngrp; ++i ) {
     goto reduce;
  }
 
-printf("\n\n\n\nc loadBalancing post PMMG_distribute_grps"); PMMG_outqua( parmesh ); printf("\n\n\n\n");
-
   /** Redistribute the ngrp groups of listgrp into a higher number of groups */
   if ( !PMMG_split_n2mGrps(parmesh,REMESHER_TARGET_MESH_SIZE,0) ) {
     fprintf(stderr,"\n  ## Problem when splitting into a lower number of groups.\n");
     ier=0;
     goto reduce;
   }
-printf("\n\n\n\nd loadBalancing post PMMG_split_n2mGrps"); PMMG_outqua( parmesh ); printf("\n\n\n\n");
 
  reduce :
   MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);

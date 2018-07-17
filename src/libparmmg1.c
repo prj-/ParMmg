@@ -544,7 +544,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     if ( 1 != ieresult )
       goto failed_handling;
 
-printf("\n\n\n\na"); PMMG_outqua( parmesh ); printf("\n\n\n\n");
     /** load Balancing at group scale and communicators reconstruction */
     ier = PMMG_loadBalancing(parmesh);
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
