@@ -569,8 +569,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   if ( !PMMG_outqua( parmesh ) ) {
     ier_end = PMMG_LOWFAILURE;
   }
-  //if ( parmesh->info.imprim0 > 4 )
-    PMMG_prilen( parmesh,1);
+  if ( parmesh->info.imprim0 > 4 && !PMMG_prilen( parmesh, 1) ) {
+    ier_end = PMMG_LOWFAILURE;
+  }
 
   ier = PMMG_packParMesh(parmesh);
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );

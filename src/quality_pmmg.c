@@ -88,7 +88,7 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
                           offsetof( min_iel_t, iel ),
                           offsetof( min_iel_t, iel_grp ),
                           offsetof( min_iel_t, cpu ) };
-  int lens[ 4 ]                        = { 1, 1, 1, 1 };
+  int          lens[ 4 ]               = { 1, 1, 1, 1 };
 
   ier = 1;
 
@@ -205,10 +205,10 @@ int PMMG_prilen( PMMG_pParMesh parmesh,char metRidTyp)
   int           amin, amin_cur, bmin, bmin_cur, amax, amax_cur, bmax, bmax_cur;
   int           nullEdge, nullEdge_cur, nullEdge_result;
   int           hl[ 9 ], hl_cur[ 9 ], hl_result[ 9 ];
-  int           i,grp_min,grp_max;
+  int           i,grp_min,grp_max,ier,ieresult;
   MPI_Op        min_max_op;
   MPI_Datatype  mpi_min_max_t;
-  MPI_Datatype types[ 10 ]              = { MPI_DOUBLE, MPI_INT, MPI_INT, MPI_INT, MPI_INT,
+  MPI_Datatype  types[ 10 ]             = { MPI_DOUBLE, MPI_INT, MPI_INT, MPI_INT, MPI_INT,
                                MPI_DOUBLE, MPI_INT, MPI_INT, MPI_INT, MPI_INT};
   min_max_t     min_max, min_max_result = { DBL_MAX, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
   MPI_Aint      disps[ 10 ]             = { offsetof( min_max_t, min ),
@@ -223,6 +223,7 @@ int PMMG_prilen( PMMG_pParMesh parmesh,char metRidTyp)
                            offsetof( min_max_t, cpu_max )};
   int lens[ 10 ]                        = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
 
+  ier = 1;
 
   nullEdge = 0;
   avlen = 0;
@@ -236,10 +237,13 @@ int PMMG_prilen( PMMG_pParMesh parmesh,char metRidTyp)
   grp_min = grp_max = 0;
 
   for ( i = 0; i < parmesh->ngrp; ++i ) {
-    grp  = &parmesh->listgrp[ i ];
-    MMG3D_computePrilen( grp->mesh, grp->met, &avlen_cur, &lmin_cur, &lmax_cur,
-                         &ned_cur, &amin_cur, &bmin_cur, &amax_cur, &bmax_cur,
-                         &nullEdge_cur, metRidTyp, &bd, hl_cur );
+    grp      = &parmesh->listgrp[ i ];
+    ieresult = MMG3D_computePrilen( grp->mesh, grp->met, &avlen_cur, &lmin_cur,
+                                    &lmax_cur,&ned_cur, &amin_cur, &bmin_cur,
+                                    &amax_cur, &bmax_cur, &nullEdge_cur,
+                                    metRidTyp, &bd, hl_cur );
+
+    ier = MG_MIN ( ieresult, ier );
 
     nullEdge += nullEdge_cur;
     avlen += avlen_cur;
@@ -316,5 +320,7 @@ int PMMG_prilen( PMMG_pParMesh parmesh,char metRidTyp)
                                        parmesh->info.imprim);
   }
 
-  return 1;
+  MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
+
+  return ieresult;
 }
