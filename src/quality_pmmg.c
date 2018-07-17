@@ -68,27 +68,27 @@ static void PMMG_min_max_compute( void* in1, void* out1, int *len, MPI_Datatype 
  */
 int PMMG_outqua( PMMG_pParMesh parmesh )
 {
-  PMMG_pGrp grp;
-  int i, j, ier, ieresult, iel_grp;
-  int ne, ne_cur, ne_result;
-  double max, max_cur, max_result;
-  double avg, avg_cur, avg_result;
-  double min, min_cur;
-  int iel, iel_cur;
-  int good, good_cur, good_result;
-  int med, med_cur, med_result;
-  const int HIS_SIZE = 5;
-  int his[ HIS_SIZE ], his_cur[ HIS_SIZE ], his_result[ HIS_SIZE ];
-  int nrid, nrid_cur, nrid_result;
-  MPI_Op        iel_min_op;
-  MPI_Datatype  mpi_iel_min_t;
-  MPI_Datatype types[ 4 ] = { MPI_DOUBLE, MPI_INT, MPI_INT, MPI_INT };
-  min_iel_t     min_iel, min_iel_result = { DBL_MAX, 0, 0, 0 };
-  MPI_Aint disps[ 4 ] = { offsetof( min_iel_t, min ),
+  PMMG_pGrp    grp;
+  int          i, j, ier, ieresult, iel_grp;
+  int          ne, ne_cur, ne_result;
+  double       max, max_cur, max_result;
+  double       avg, avg_cur, avg_result;
+  double       min, min_cur;
+  int          iel, iel_cur;
+  int          good, good_cur, good_result;
+  int          med, med_cur, med_result;
+  const int    HIS_SIZE                = 5;
+  int          his[ HIS_SIZE ], his_cur[ HIS_SIZE ], his_result[ HIS_SIZE ];
+  int          nrid, nrid_cur, nrid_result;
+  MPI_Op       iel_min_op;
+  MPI_Datatype mpi_iel_min_t;
+  MPI_Datatype types[ 4 ]              = { MPI_DOUBLE, MPI_INT, MPI_INT, MPI_INT };
+  min_iel_t    min_iel, min_iel_result = { DBL_MAX, 0, 0, 0 };
+  MPI_Aint     disps[ 4 ]              = { offsetof( min_iel_t, min ),
                           offsetof( min_iel_t, iel ),
                           offsetof( min_iel_t, iel_grp ),
                           offsetof( min_iel_t, cpu ) };
-  int lens[ 4 ] = { 1, 1, 1, 1 };
+  int lens[ 4 ]                        = { 1, 1, 1, 1 };
 
   ier = 1;
 
@@ -156,9 +156,10 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
     fprintf(stdout,"\n  -- PARALLEL MESH QUALITY");
 
     grp = &parmesh->listgrp[ 0 ];
-#warning to change with parmesh->imprim once the leadbalanding branch will be merged
-    if ( grp->mesh->info.imprim )
+    if ( parmesh->info.imprim && grp->mesh->info.optimLES ) {
       fprintf( stdout," (LES)" );
+    }
+
     fprintf( stdout, "  %d\n", ne_result );
 
     fprintf( stdout, "     BEST   %8.6f  AVRG.   %8.6f  WRST.   %8.6f (",
@@ -176,7 +177,7 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
                                           min_iel_result.min, min_iel_result.iel,
                                           good_result, med_result, his_result,
                                           nrid_result,grp->mesh->info.optimLES,
-                                          grp->mesh->info.imprim ) )
+                                          parmesh->info.imprim ) )
       ier = 0;
   }
 
@@ -196,31 +197,31 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
  */
 int PMMG_prilen( PMMG_pParMesh parmesh,char metRidTyp)
 {
-  PMMG_pGrp grp;
-  double *bd;
-  double avlen, avlen_cur, avlen_result;
-  double lmin, lmin_cur, lmax, lmax_cur;
-  int ned, ned_cur, ned_result;
-  int amin, amin_cur, bmin, bmin_cur, amax, amax_cur, bmax, bmax_cur;
-  int nullEdge, nullEdge_cur, nullEdge_result;
-  int hl[ 9 ], hl_cur[ 9 ], hl_result[ 9 ];
-  int i,grp_min,grp_max;
+  PMMG_pGrp     grp;
+  double       *bd;
+  double        avlen, avlen_cur, avlen_result;
+  double        lmin, lmin_cur, lmax, lmax_cur;
+  int           ned, ned_cur, ned_result;
+  int           amin, amin_cur, bmin, bmin_cur, amax, amax_cur, bmax, bmax_cur;
+  int           nullEdge, nullEdge_cur, nullEdge_result;
+  int           hl[ 9 ], hl_cur[ 9 ], hl_result[ 9 ];
+  int           i,grp_min,grp_max;
   MPI_Op        min_max_op;
   MPI_Datatype  mpi_min_max_t;
-  MPI_Datatype types[ 10 ] = { MPI_DOUBLE, MPI_INT, MPI_INT, MPI_INT, MPI_INT,
-                              MPI_DOUBLE, MPI_INT, MPI_INT, MPI_INT, MPI_INT};
-  min_max_t min_max, min_max_result = { DBL_MAX, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-  MPI_Aint disps[ 10 ] = { offsetof( min_max_t, min ),
-                          offsetof( min_max_t, amin ),
-                          offsetof( min_max_t, bmin ),
-                          offsetof( min_max_t, grp_min ),
-                          offsetof( min_max_t, cpu_min ),
-                          offsetof( min_max_t, max ),
-                          offsetof( min_max_t, amax ),
-                          offsetof( min_max_t, bmax ),
-                          offsetof( min_max_t, grp_max ),
-                          offsetof( min_max_t, cpu_max )};
-  int lens[ 10 ] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
+  MPI_Datatype types[ 10 ]              = { MPI_DOUBLE, MPI_INT, MPI_INT, MPI_INT, MPI_INT,
+                               MPI_DOUBLE, MPI_INT, MPI_INT, MPI_INT, MPI_INT};
+  min_max_t     min_max, min_max_result = { DBL_MAX, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+  MPI_Aint      disps[ 10 ]             = { offsetof( min_max_t, min ),
+                           offsetof( min_max_t, amin ),
+                           offsetof( min_max_t, bmin ),
+                           offsetof( min_max_t, grp_min ),
+                           offsetof( min_max_t, cpu_min ),
+                           offsetof( min_max_t, max ),
+                           offsetof( min_max_t, amax ),
+                           offsetof( min_max_t, bmax ),
+                           offsetof( min_max_t, grp_max ),
+                           offsetof( min_max_t, cpu_max )};
+  int lens[ 10 ]                        = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
 
 
   nullEdge = 0;
@@ -307,15 +308,13 @@ int PMMG_prilen( PMMG_pParMesh parmesh,char metRidTyp)
 
     fprintf( stdout,"EDGE %6d %6d\n",min_max_result.amax,min_max_result.bmax);
 
-#warning to change with parmesh->imprim once the leadbalanding branch will be merged
     _MMG5_displayLengthHisto_internal( parmesh->listgrp[ 0 ].mesh, ned_result,
                                        min_max_result.amin, min_max_result.bmin,
                                        min_max_result.min, min_max_result.amax,
                                        min_max_result.bmax, min_max_result.max,
                                        nullEdge_result, bd, hl_result, 1,
-                                       parmesh->listgrp[0].mesh->info.imprim);
+                                       parmesh->info.imprim);
   }
 
   return 1;
 }
-

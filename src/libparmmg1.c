@@ -227,8 +227,14 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
   MMG5_pMesh mesh;
   MMG5_pSol  met;
   int        k;
+  mytime     ctim[TIMEMAX];
+  char       stim[32];
 
-  if ( !parmesh->myrank && parmesh->listgrp[0].mesh->info.imprim )
+
+  tminit(ctim,TIMEMAX);
+  chrono(ON,&(ctim[0]));
+
+  if ( parmesh->info.imprim )
     fprintf(stdout,"\n  -- PMMG: CHECK INPUT DATA\n");
 
   for ( k=0; k<parmesh->ngrp; ++k ) {
@@ -282,8 +288,8 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
       return PMMG_FAILURE;
     }
   }
-  if ( !parmesh->myrank && parmesh->listgrp[0].mesh->info.imprim )
-    fprintf(stdout,"  -- CHECK INPUT DATA COMPLETED\n");
+  if ( parmesh->info.imprim )
+    fprintf(stdout,"  -- CHECK INPUT DATA COMPLETED.     %s\n",stim);
 
   return PMMG_SUCCESS;
 }
@@ -453,7 +459,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 {
   MMG5_pMesh mesh;
   MMG5_pSol  met;
-  int        it,ier,ieresult,i,k, *facesData;
+  int        it,ier,ier_end,ieresult,i,k, *facesData;
+
+  ier_end = PMMG_SUCCESS;
 
   /** Groups creation */
   ier = PMMG_split_grps( parmesh,REMESHER_TARGET_MESH_SIZE,0 );
@@ -558,9 +566,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     }
   }
 
-  PMMG_outqua( parmesh );
-#warning THIS IF HAS TO BE REENABLED. FOR IT TO BE UNCOMMENTED AGAIN, SOME OF THE CHANGES IN THE LOAD BALANCING BRANCH ARE REQUIRED
-//  if ( parmesh->listgrp[0].mesh->info.imprim > 4 )
+  if ( !PMMG_outqua( parmesh ) ) {
+    ier_end = PMMG_LOWFAILURE;
+  }
+  //if ( parmesh->info.imprim0 > 4 )
     PMMG_prilen( parmesh,1);
 
   ier = PMMG_packParMesh(parmesh);
@@ -576,8 +585,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     fprintf(stderr,"\n  ## Groups merging problem. Exit program.\n");
     return PMMG_STRONGFAILURE;
   }
-
-  return PMMG_SUCCESS;
+  return ier_end;
 
   /** mmg3d1_delone failure */
 failed:
