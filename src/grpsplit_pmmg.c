@@ -308,6 +308,8 @@ int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp ) {
   PMMG_pGrp        grp;
   MMG5_pMesh       mesh;
   MMG5_pSol        met;
+  char             chaine[256];
+  int              meshin_s,meshout_s,metin_s,metout_s;
   size_t           oldMemMax,memAv;
 
   grp = &parmesh->old_listgrp[igrp];
@@ -328,11 +330,25 @@ int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp ) {
   PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
 
   /* Copy the mesh filenames */
-  if ( !MMG5_Set_inputMeshName(  mesh,meshOld->namein) )      return 0;
-  if ( !MMG5_Set_inputSolName(   mesh,met,metOld->namein ) )  return 0;
-  if ( !MMG5_Set_outputMeshName( mesh,meshOld->nameout ) )    return 0;
-  if ( !MMG5_Set_outputSolName(  mesh,met,metOld->nameout ) ) return 0;
+  sprintf(chaine,"old_"); strcat(chaine,meshOld->namein);
+  if ( !MMG5_Set_inputMeshName(  mesh,chaine ) )     return 0;
+  sprintf(chaine,"old_"); strcat(chaine,meshOld->nameout);
+  if ( !MMG5_Set_outputMeshName( mesh,chaine ) )     return 0;
+  sprintf(chaine,"old_"); strcat(chaine,metOld->namein);
+  if ( !MMG5_Set_inputSolName(   mesh,met,chaine ) ) return 0;
+  sprintf(chaine,"old_"); strcat(chaine,metOld->nameout);
+  if ( !MMG5_Set_outputSolName(  mesh,met,chaine ) ) return 0;
 
+  meshin_s  = (strlen(mesh->namein) + 1);
+  meshout_s = (strlen(mesh->nameout) + 1);
+  metin_s   = (strlen(met->namein) + 1);
+  metout_s  = (strlen(met->nameout) + 1);
+
+  if( meshin_s > 255 || meshout_s > 255 || metin_s > 255 || metout_s > 255 ) { 
+    fprintf(stderr,"  ## Error: input filenames too long.");
+    return 0;
+  }
+ 
   /* Set sizes and allocate new mesh */
   if ( !PMMG_grpSplit_setMeshSize( mesh,meshOld->np,meshOld->ne,0,0,0) )
     return 0;
