@@ -1022,6 +1022,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh)
   int poiPerGrp = 0;
   int *posInIntFaceComm,*iplocFaceComm;
   int i, grpId, poi, tet, fac, ie;
+  int8_t pmmgWarn = 0;
 
   if ( !parmesh->ngrp ) goto end;
 
@@ -1045,34 +1046,42 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh)
     if ( parmesh->info.metis_ratio < 0 ) {
       /* default value : do not authorize large number of groups */
       if ( ngrp > PMMG_METIS_NGRPS_MAX ) {
-        printf("  ## Warning: %s: too much metis nodes needed...\n"
-               "     Partitions may remains freezed. Try to use more processors.\n",
-               __func__);
-        ngrp = PMMG_METIS_NGRPS_MAX;
+        if ( !pmmgWarn ) {
+          pmmgWarn = 1;
+          printf("  ## Warning: %s: too much metis nodes needed...\n"
+                 "     Partitions may remains freezed. Try to use more processors.\n",
+                 __func__);
+          ngrp = PMMG_METIS_NGRPS_MAX;
+        }
       }
     }
     if ( ngrp > meshOld->ne ) {
       /* Correction if it leads to more groups than elements */
-      printf("  ## Warning: %s: too much metis nodes needed...\n"
-             "     Partitions may remains freezed. Try to use more processors.\n",
-             __func__);
+      if ( !pmmgWarn ) {
+        pmmgWarn = 1;
+        printf("  ## Warning: %s: too much metis nodes needed...\n"
+               "     Partitions may remains freezed. Try to use more processors.\n",
+               __func__);
+      }
       ngrp = MG_MIN ( meshOld->ne, ngrp );
     }
   }
 
   /* Does the group need to be further subdivided to subgroups or not? */
   if ( ngrp == 1 )  {
-    if ( parmesh->ddebug )
+    if ( parmesh->ddebug ) {
       fprintf( stdout,
                "[%d-%d]: %d group is enough, no need to create sub groups.\n",
                parmesh->myrank+1, parmesh->nprocs, ngrp );
+    }
     goto end;
 
   } else {
-    if ( parmesh->ddebug )
+    if ( parmesh->ddebug ) {
       fprintf( stdout,
                "[%d-%d]: %d groups required, splitting into sub groups...\n",
                parmesh->myrank+1, parmesh->nprocs, ngrp );
+    }
   }
 
   /* Crude check whether there is enough free memory to allocate the new group */
