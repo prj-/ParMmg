@@ -142,8 +142,8 @@ IF ( ${CMD_ERROR} MATCHES 0 )
   MESSAGE(WARNING "Possible deadlocks with open-mpi (see https://github.com/open-mpi/ompi/issues/6568 )...")
 ENDIF()
 
-SET( CMAKE_C_FLAGS "-DUSE_MPI ${CMAKE_C_FLAGS}" )
-SET( CMAKE_CXX_FLAGS "-DUSE_MPI ${CMAKE_CXX_FLAGS}" )
+ADD_DEFINITIONS ( -DUSE_MPI )
+
 MESSAGE( STATUS "Compilation with mpi" )
 SET( LIBRARIES ${MPI_C_LIBRARIES} ${LIBRARIES} )
 SET( LIBRARIES ${MPI_CXX_LIBRARIES} ${LIBRARIES} )
@@ -209,8 +209,9 @@ ENDIF ( )
 ###############################################################################
 
 IF( SCOTCH_FOUND )
-  SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DUSE_SCOTCH")
- MESSAGE(STATUS
+  ADD_DEFINITIONS ( -DUSE_SCOTCH )
+
+  MESSAGE(STATUS
     "Compilation with scotch: ${SCOTCH_LIBRARIES}")
   SET( LIBRARIES ${LIBRARIES} ${SCOTCH_LIBRARIES})
 ENDIF()
@@ -226,10 +227,48 @@ ENDIF ( )
 
 ############################################################################
 #####
-#####        MMG (for mesh data structure)
+#####        BigMPI (to split too large messages into smaller ones)
 #####
 ############################################################################
 INCLUDE ( ExternalProject )
+
+# forward compiler
+SET ( COMPILER_CFG -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+  -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} )
+
+# forward flags
+SET ( FLAGS_CFG -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}
+  -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS}
+  -DCMAKE_EXE_LINKER_FLAGS=${CMAKE_EXE_LINKER_FLAGS} )
+
+EXTERNALPROJECT_ADD ( BigMPI
+  URL ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/BigMPI-master.zip
+  CMAKE_ARGS  ${COMPILER_CFG} ${FLAGS_CFG}
+  -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+  -DCMAKE_INSTALL_PREFIX=.
+  -DLIB_LINKAGE_TYPE=STATIC
+  -DCMAKE_SKIP_INSTALL_ALL_DEPENDENCY=ON ..
+  BUILD_COMMAND  ${CMAKE_MAKE_PROGRAM} bigmpi
+  INSTALL_COMMAND ${CMAKE_MAKE_PROGRAM} install bigmpi
+  )
+
+EXTERNALPROJECT_GET_PROPERTY ( BigMPI BINARY_DIR )
+SET ( BigMPI_BINARY_DIR ${BINARY_DIR} )
+
+INCLUDE_DIRECTORIES(${BigMPI_BINARY_DIR}/include)
+
+SET( BigMPI_LIBRARY ${BigMPI_BINARY_DIR}/lib/libbigmpi${CMAKE_STATIC_LIBRARY_SUFFIX})
+
+SET( LIBRARIES ${BigMPI_LIBRARY} ${LIBRARIES})
+
+MESSAGE(STATUS
+  "Compilation with BigMPI: ${BigMPI_LIBRARY}")
+
+############################################################################
+#####
+#####        MMG (for mesh data structure)
+#####
+############################################################################
 
 # forward scotch configuration
 SET ( SCOTCH_CFG -DUSE_SCOTCH=${USE_SCOTCH} -DSCOTCH_DIR=${SCOTCH_DIR}
@@ -358,7 +397,7 @@ IF ( DOWNLOAD_METIS )
   INCLUDE_DIRECTORIES(${METIS_INSTALL_DIR}/include)
   SET ( METIS_LIBRARIES ${METIS_INSTALL_DIR}/lib/libmetis.a )
 
-  SET(CMAKE_C_FLAGS "-DUSE_METIS ${CMAKE_C_FLAGS}")
+  ADD_DEFINITIONS ( -DUSE_METIS )
 
   MESSAGE(STATUS
     "Compilation with metis: ${METIS_LIBRARIES}")
@@ -376,7 +415,7 @@ ELSE ( )
       # Set flags for building test program
       INCLUDE_DIRECTORIES(${METIS_INCLUDE_DIRS})
 
-      SET(CMAKE_C_FLAGS "-DUSE_METIS ${CMAKE_C_FLAGS}")
+      ADD_DEFINITIONS ( -DUSE_METIS )
 
       MESSAGE(STATUS
         "Compilation with metis: ${METIS_LIBRARIES}")
@@ -506,6 +545,8 @@ IF ( LIBPARMMG_STATIC )
     Add_Dependencies(lib${PROJECT_NAME}_a Metis)
   ENDIF ( )
 
+  Add_Dependencies(lib${PROJECT_NAME}_a BigMPI)
+
 ENDIF()
 
 # Compile shared library
@@ -521,6 +562,8 @@ IF ( LIBPARMMG_SHARED )
   IF ( DOWNLOAD_METIS )
     Add_Dependencies(lib${PROJECT_NAME}_so Metis)
   ENDIF ( )
+
+  Add_Dependencies(lib${PROJECT_NAME}_so BigMPI)
 
 ENDIF()
 
@@ -563,6 +606,8 @@ ENDIF ( )
 IF ( DOWNLOAD_METIS )
   Add_Dependencies(parmmg Metis)
 ENDIF ( )
+
+Add_Dependencies(parmmg BigMPI)
 
 ############################################################################
 #####
