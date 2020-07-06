@@ -37,7 +37,6 @@
  */
 #include <mpi.h>
 #include "parmmg.h"
-#include "mpitypes_pmmg.h"
 #include "metis_pmmg.h"
 #include "mpipack_pmmg.h"
 #include "mpiunpack_pmmg.h"
