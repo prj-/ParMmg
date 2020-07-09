@@ -31,6 +31,7 @@
  */
 
 #include "parmmg.h"
+#include <bigmpi.h>
 
 /**
  * \param grp pointer toward a PMMG group
@@ -41,12 +42,12 @@
  *
  */
 static
-int PMMG_mpisizeof_meshSizes ( PMMG_pGrp grp ) {
+MPI_Count PMMG_mpisizeof_meshSizes ( PMMG_pGrp grp ) {
   const MMG5_pMesh mesh = grp->mesh;
   const MMG5_pSol  met  = grp->met;
   const MMG5_pSol  ls   = grp->ls;
   const MMG5_pSol  disp = grp->disp;
-  int              idx = 0;
+  MPI_Count         idx = 0;
 
   /** Mesh size */
   idx += sizeof(int); // mesh->np
@@ -91,14 +92,14 @@ int PMMG_mpisizeof_meshSizes ( PMMG_pGrp grp ) {
  *
  */
 static
-int PMMG_mpisizeof_filenames ( PMMG_pGrp grp ) {
+MPI_Count PMMG_mpisizeof_filenames ( PMMG_pGrp grp ) {
   const MMG5_pMesh mesh = grp->mesh;
   const MMG5_pSol  met  = grp->met;
   const MMG5_pSol  ls   = grp->ls;
   const MMG5_pSol  disp = grp->disp;
   MMG5_pSol        psl;
   int              is;
-  int              idx = 0;
+  MPI_Count        idx = 0;
 
   /** Mesh names */
   idx += sizeof(int); // meshin
@@ -156,8 +157,8 @@ int PMMG_mpisizeof_filenames ( PMMG_pGrp grp ) {
  *
  */
 static
-int PMMG_mpisizeof_infos ( MMG5_Info *info ) {
-  int idx = 0;
+MPI_Count PMMG_mpisizeof_infos ( MMG5_Info *info ) {
+  MPI_Count idx = 0;
 
   /** Mesh infos: warning, some "useless" info are not sended */
   idx += sizeof(double); // mesh->info.dhd
@@ -226,13 +227,13 @@ int PMMG_mpisizeof_infos ( MMG5_Info *info ) {
  *
  */
 static
-int PMMG_mpisizeof_meshArrays ( PMMG_pGrp grp ) {
+MPI_Count PMMG_mpisizeof_meshArrays ( PMMG_pGrp grp ) {
   const MMG5_pMesh mesh = grp->mesh;
   const MMG5_pSol  met  = grp->met;
   const MMG5_pSol  ls   = grp->ls;
   const MMG5_pSol  disp = grp->disp;
   MMG5_pSol        psl;
-  int              idx = 0;
+  MPI_Count        idx = 0;
   int              is;
 
   /** Pack mesh points */
@@ -341,8 +342,8 @@ int PMMG_mpisizeof_meshArrays ( PMMG_pGrp grp ) {
  *
  */
 static
-int PMMG_mpisizeof_grpintcomm ( PMMG_pGrp grp ) {
-  int              idx = 0;
+MPI_Count PMMG_mpisizeof_grpintcomm ( PMMG_pGrp grp ) {
+  MPI_Count  idx = 0;
 
   /** Pack communicators */
   /* Communicator sizes */
@@ -368,8 +369,8 @@ int PMMG_mpisizeof_grpintcomm ( PMMG_pGrp grp ) {
  *
  */
 static
-int PMMG_mpisizeof_nodeintvalues ( PMMG_pParMesh parmesh ) {
-  int              idx = 0;
+MPI_Count PMMG_mpisizeof_nodeintvalues ( PMMG_pParMesh parmesh ) {
+  MPI_Count  idx = 0;
 
   /** Pack intvalues array of nodal communicator */
   /* Array size */
@@ -390,9 +391,10 @@ int PMMG_mpisizeof_nodeintvalues ( PMMG_pParMesh parmesh ) {
  *
  */
 static
-int PMMG_mpisizeof_extnodecomm ( PMMG_pParMesh parmesh ) {
+MPI_Count PMMG_mpisizeof_extnodecomm ( PMMG_pParMesh parmesh ) {
   PMMG_pExt_comm ext_node_comm;
-  int            k,idx = 0;
+  int            k;
+  MPI_Count      idx = 0;
 
   /** Pack nodal external communicators */
   /* Number of external communicators */
@@ -419,10 +421,9 @@ int PMMG_mpisizeof_extnodecomm ( PMMG_pParMesh parmesh ) {
  * Compute the size of the compressed group.
  *
  */
-int PMMG_mpisizeof_grp ( PMMG_pGrp grp ) {
+MPI_Count PMMG_mpisizeof_grp ( PMMG_pGrp grp ) {
   const MMG5_pMesh mesh = grp->mesh;
-
-  int idx;
+  MPI_Count        idx;
 
   /** Used or unused group */
   idx = sizeof(int);
@@ -457,9 +458,9 @@ int PMMG_mpisizeof_grp ( PMMG_pGrp grp ) {
  * before entering this function).
  *
  */
-int PMMG_mpisizeof_parmesh ( PMMG_pParMesh parmesh ) {
+MPI_Count PMMG_mpisizeof_parmesh ( PMMG_pParMesh parmesh ) {
   PMMG_pGrp grp;
-  int       idx;
+  MPI_Count idx;
 
   assert ( parmesh->ngrp < 2 ); // Check that groups are merged
 

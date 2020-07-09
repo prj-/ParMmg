@@ -36,6 +36,8 @@
  *
  */
 #include <mpi.h>
+#include <bigmpi.h>
+
 #include "parmmg.h"
 #include "metis_pmmg.h"
 #include "mpipack_pmmg.h"
@@ -978,7 +980,8 @@ end:
  * \param nitem_recv_ext_idx size of recv_ext_idx buffer
  * \param ext_recv_comm external communicator \a myrank - \a recv
  * \param irequest mpi request of the send of the integer buffer
- * \param drequest mpi request of the send of the double buffer
+ * \param srequest mpi request of the send of the int64_t (size_t) buffer
+ * \param crequest mpi request of the send of the char buffer
  * \param trequest array of mpi requests of the send of the external comm
  *
  * \return 0 if fail, 1 if we success
@@ -993,8 +996,9 @@ int PMMG_transfer_grps_fromMetoJ(PMMG_pParMesh parmesh,const int recv,
                                  int *nitem_intcomm_flag,int **recv_ext_idx,
                                  int *nitem_recv_ext_idx,
                                  PMMG_pExt_comm ext_recv_comm,char **grps2send,
-                                 int *pack_size,MPI_Request *irequest,
-                                 MPI_Request *drequest,MPI_Request **trequest ) {
+                                 MPI_Count *pack_size,MPI_Request *irequest,
+                                 MPI_Request *srequest,
+                                 MPI_Request *crequest,MPI_Request **trequest ) {
 
   PMMG_pGrp      grp;
   PMMG_pInt_comm int_comm;
@@ -1342,6 +1346,15 @@ int PMMG_transfer_grps_fromMetoJ(PMMG_pParMesh parmesh,const int recv,
     *pack_size += PMMG_mpisizeof_grp(grp);
   }
 
+  /* Send the message size (because it is not anymore possible to use MPI_Probe
+   * + Get_count if BigMPI creates en new type to transfer the message) */
+  *srequest = MPI_REQUEST_NULL;
+
+  /* Send the size of the message because bigMPI can create a new type so we
+   * can't use MPI_Get_count anymore */
+  MPI_CHECK ( MPI_Isend ( pack_size,1,MPI_INT64_T,recv,MPI_SENDGRP_TAG,
+                          comm,srequest), ier = 0 );
+
   /* Pack the groups */
   PMMG_MALLOC ( parmesh,*grps2send,*pack_size,char,"grps2send",
                 ier = MG_MIN(ier,0) );
@@ -1355,9 +1368,10 @@ int PMMG_transfer_grps_fromMetoJ(PMMG_pParMesh parmesh,const int recv,
   }
 
   /* Send its */
-  *drequest = MPI_REQUEST_NULL;
-  MPI_CHECK ( MPI_Isend ( *grps2send,*pack_size,MPI_CHAR,recv,MPI_SENDGRP_TAG,
-                           comm,drequest), ier = 0 );
+  *crequest = MPI_REQUEST_NULL;
+  /* Do not wait the end of the reception to continue */
+  MPI_CHECK ( MPIX_Isend_x ( *grps2send,*pack_size,MPI_CHAR,recv,MPI_SENDGRP_TAG+1,
+                             comm,crequest), ier = 0 );
 
   /** Free the memory */
   /* Group deletion */
@@ -1400,7 +1414,7 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
   PMMG_pExt_comm ext_face_comm;
   MPI_Status     status;
   size_t         available;
-  int            pack_size;
+  MPI_Count      pack_size;
   int            k,ier,ier0,recv_int_nitem,offset,old_nitem;
   int            *send2recv_int_comm,nitem,nextcomm;
   int            old_offset,grpscount,idx,color_out,n,err;
@@ -1447,6 +1461,7 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
   PMMG_MALLOC ( parmesh,*recv_ext_idx,*nitem_recv_ext_idx,int,"recv_ext_idx",
                 ier = 0 );
 
+  /* Wait for the end of the reception to continue */
   MPI_CHECK ( MPI_Recv(*recv_ext_idx,*nitem_recv_ext_idx,MPI_INT,sndr,MPI_TRANSFER_GRP_TAG+3,comm,&status),
               ier = 0 );
   offset = 0;
@@ -1589,12 +1604,14 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
 
 
   /** Step 5: Receive the new groups */
-  MPI_CHECK ( MPI_Probe(sndr,MPI_SENDGRP_TAG,comm,&status), ier = 0 );
-  MPI_CHECK ( MPI_Get_count(&status,MPI_CHAR,&pack_size), ier = 0 );
+  /* Wait for the end of the reception to continue */
+  MPI_CHECK ( MPI_Recv(&pack_size,1,MPI_INT64_T,sndr,MPI_SENDGRP_TAG,comm,&status),
+              ier = 0 );
 
   PMMG_MALLOC ( parmesh,buffer,pack_size,char,"buffer", ier = 0 );
 
-  MPI_CHECK ( MPI_Recv(buffer,pack_size,MPI_CHAR,sndr,MPI_SENDGRP_TAG,comm,&status),
+  /* Wait for the end of the reception to continue */
+  MPI_CHECK ( MPIX_Recv_x(buffer,pack_size,MPI_CHAR,sndr,MPI_SENDGRP_TAG+1,comm,&status),
               ier = 0 );
 
   ier0 = 1;
@@ -1664,9 +1681,10 @@ int PMMG_transfer_grps_fromItoJ(PMMG_pParMesh parmesh,const int sndr,
 
   PMMG_pExt_comm ext_face_comm,ext_send_comm,ext_recv_comm;
   MPI_Status     status;
-  MPI_Request    irequest,drequest;
+  MPI_Request    irequest,crequest,srequest;
   MPI_Request    *trequest;
-  int            k,count,ier,ier0,*recv_ext_idx,old_nitem,idx,pack_size,err;
+  MPI_Count      pack_size;
+  int            k,count,ier,ier0,*recv_ext_idx,old_nitem,idx,err;
   int            *intcomm_flag,nitem_intcomm_flag,nitem_recv_ext_idx;
   char           *grps2send;
   static int8_t  pmmgWarn = 0;
@@ -1715,7 +1733,7 @@ int PMMG_transfer_grps_fromItoJ(PMMG_pParMesh parmesh,const int sndr,
                                        &intcomm_flag,&nitem_intcomm_flag,
                                        &recv_ext_idx,&nitem_recv_ext_idx,
                                        ext_recv_comm,&grps2send,&pack_size,
-                                       &irequest,&drequest,&trequest);
+                                       &irequest,&srequest,&crequest,&trequest);
   }
   else if ( myrank == recv ) {
     /* i = sndr */
@@ -1819,13 +1837,18 @@ int PMMG_transfer_grps_fromItoJ(PMMG_pParMesh parmesh,const int sndr,
     MPI_CHECK( MPI_Waitall(nprocs,trequest,MPI_STATUSES_IGNORE), return 0 );
     PMMG_DEL_MEM ( parmesh, trequest,MPI_Request,"request_tab" );
 
+    /* Wait for the end of the send of intcomm_flag before deallocating it */
     MPI_CHECK( MPI_Wait(&irequest,&status), return 0 );
-    MPI_CHECK( MPI_Wait(&drequest,&status), return 0 );
+    /* Wait for the end of the send of the size of the pack: Needed? */
+    MPI_CHECK( MPI_Wait(&srequest,&status), return 0 );
+    /* Wait for the end of the send of grp2send before deallocating it */
+    MPI_CHECK( MPI_Wait(&crequest,&status), return 0 );
 
     /* Free the memory */
     PMMG_DEL_MEM ( parmesh,grps2send,char,"grps2send" );
   }
   else if ( myrank == recv ) {
+    /* Wait for the end of the send of intcomm_flag before deallocating it */
     MPI_CHECK( MPI_Wait(&irequest,&status), return 0 );
   }
 

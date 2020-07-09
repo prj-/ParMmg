@@ -34,8 +34,8 @@
  */
 #include "libmmgtypes.h"
 
-int PMMG_mpisizeof_grp ( PMMG_pGrp grp );
-int PMMG_mpisizeof_parmesh ( PMMG_pParMesh parmesh );
+MPI_Count PMMG_mpisizeof_grp ( PMMG_pGrp grp );
+MPI_Count PMMG_mpisizeof_parmesh ( PMMG_pParMesh parmesh );
 int PMMG_mpipack_grp ( PMMG_pGrp grp,char **buffer );
 int PMMG_mpipack_parmesh ( PMMG_pParMesh parmesh,char **buffer );
 
