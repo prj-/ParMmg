@@ -34,6 +34,7 @@
 #include "mpipack_pmmg.h"
 #include "mpiunpack_pmmg.h"
 #include "moveinterfaces_pmmg.h"
+#include "bigmpi.h"
 
 /**
  * \param solI pointer toward the destination solution structure
@@ -1092,8 +1093,10 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
                          PMMG_pExt_comm **rcv_ext_node_comm ) {
 
   size_t     available;
-  int        *rcv_pack_size,*displs,ier,ier_glob,k,ier_pack;
-  int        nprocs,root,pack_size,pack_size_tot;
+  int        ier,ier_glob,k,ier_pack;
+  int        nprocs,root;
+  MPI_Aint   *rcv_pack_size,pack_size,*displs;
+  MPI_Count  pack_size_tot;
   char       *rcv_buffer,*buffer,*ptr;
 
   nprocs        = parmesh->nprocs;
@@ -1112,8 +1115,8 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
 
   /** 1: Memory alloc */
   if ( parmesh->myrank == root ) {
-    PMMG_MALLOC( parmesh, rcv_pack_size        ,nprocs,int,"rcv_pack_size",ier=0);
-    PMMG_CALLOC( parmesh, displs               ,nprocs,int,"displs for gatherv",ier=0);
+    PMMG_MALLOC( parmesh, rcv_pack_size        ,nprocs,MPI_Aint,"rcv_pack_size",ier=0);
+    PMMG_CALLOC( parmesh, displs               ,nprocs,MPI_Aint,"displs for gatherv",ier=0);
     PMMG_CALLOC( parmesh, (*rcv_grps)          ,nprocs,PMMG_Grp,"rcv_grps",ier=0);
     PMMG_MALLOC( parmesh, (*rcv_int_node_comm) ,nprocs,PMMG_Int_comm,"rcv_int_comm" ,ier=0);
     PMMG_MALLOC( parmesh, (*rcv_next_node_comm),nprocs,int,"rcv_next_comm" ,ier=0);
@@ -1130,7 +1133,7 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
   }
 #endif
 
-  MPI_CHECK(MPI_Gather(&pack_size,1,MPI_INT,rcv_pack_size,1,MPI_INT,root,parmesh->comm),ier = 0);
+  MPI_CHECK(MPI_Gather(&pack_size,1,MPI_AINT,rcv_pack_size,1,MPI_AINT,root,parmesh->comm),ier = 0);
 
   /** 3: Gather compressed parmeshes */
   /* Compute data for gatherv: displacement array and receiver buffer size */
@@ -1161,9 +1164,9 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
 
   /* Gather the packed parmeshes */
   ier = MG_MIN ( ier, ier_pack );
-  MPI_CHECK( MPI_Gatherv ( ptr,pack_size,MPI_CHAR,
-                           rcv_buffer,rcv_pack_size,
-                           displs,MPI_CHAR,root,parmesh->comm ),ier=0 );
+  MPI_CHECK( MPIX_Gatherv_x ( ptr,pack_size,MPI_CHAR,
+                              rcv_buffer,(MPI_Count*)rcv_pack_size,
+                              displs,MPI_CHAR,root,parmesh->comm ),ier=0 );
 
   PMMG_DEL_MEM(parmesh,ptr,char,"buffer to send");
 

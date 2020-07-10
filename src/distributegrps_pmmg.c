@@ -1352,7 +1352,7 @@ int PMMG_transfer_grps_fromMetoJ(PMMG_pParMesh parmesh,const int recv,
 
   /* Send the size of the message because bigMPI can create a new type so we
    * can't use MPI_Get_count anymore */
-  MPI_CHECK ( MPI_Isend ( pack_size,1,MPI_INT64_T,recv,MPI_SENDGRP_TAG,
+  MPI_CHECK ( MPI_Isend ( pack_size,1,MPI_COUNT,recv,MPI_SENDGRP_TAG,
                           comm,srequest), ier = 0 );
 
   /* Pack the groups */
@@ -1605,7 +1605,7 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
 
   /** Step 5: Receive the new groups */
   /* Wait for the end of the reception to continue */
-  MPI_CHECK ( MPI_Recv(&pack_size,1,MPI_INT64_T,sndr,MPI_SENDGRP_TAG,comm,&status),
+  MPI_CHECK ( MPI_Recv(&pack_size,1,MPI_COUNT,sndr,MPI_SENDGRP_TAG,comm,&status),
               ier = 0 );
 
   PMMG_MALLOC ( parmesh,buffer,pack_size,char,"buffer", ier = 0 );
