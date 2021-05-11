@@ -2,6 +2,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8.0)
 
 INCLUDE(CMakeDependentOption)
 INCLUDE(cmake/modules/macros.cmake)
+INCLUDE(CheckCSourceCompiles)
 
 PROJECT (parmmg)
 
@@ -121,6 +122,12 @@ IF( NOT DEFINED LIBPARMMG_STATIC)
   SET ( LIBPARMMG_STATIC ${BUILD_STATIC_LIBS})
 ENDIF()
 
+# Explicitly set the DNDEBUG flag in case the user or a parent project overrides
+# it.
+if (NOT CMAKE_BUILD_TYPE MATCHES Debug)
+    add_definitions(-DNDEBUG)
+endif()
+
 ############################################################################
 #####
 #####         MPI
@@ -162,6 +169,26 @@ STRING(REGEX REPLACE "\"" " " CMD_OUT "${CMD_OUTPUT}")
 IF ( "${CMD_OUT}" MATCHES "oversubscribe" )
   SET ( MPI_ARGS "-oversubscribe" )
 ENDIF()
+
+# Check the minimum MPI version
+SET ( CMAKE_REQUIRED_INCLUDES "${MPI_INCLUDE_PATH}" )
+SET ( CMAKE_REQUIRED_LIBRARIES "${MPI_C_LIBRARIES}" )
+CHECK_C_SOURCE_COMPILES( "
+#include <stdio.h>
+#include <stdint.h>
+#include <mpi.h>
+int main(int argc, char **argv) {
+MPI_Comm comm_shm = 0;
+MPI_Comm_split_type( MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
+  &comm_shm );
+}
+"
+MPI3_TEST_COMPILES )
+IF( NOT MPI3_TEST_COMPILES )
+  MESSAGE( FATAL_ERROR "ERROR: impossible to compile a simple MPI test program."
+    " Check your MPI library version:"
+    " ParMmg requires an MPI version >= 3.0.0.")
+ENDIF ( )
 
 ############################################################################
 #####
@@ -265,7 +292,7 @@ IF ( DOWNLOAD_MMG )
 
   EXTERNALPROJECT_ADD ( Mmg
     GIT_REPOSITORY https://github.com/MmgTools/mmg.git
-    GIT_TAG a9b8d561f58a781847e97e7942b73598c5ba17a9
+    GIT_TAG d708a5880424369a2aee7490a89d5ea42cc19fc0
     INSTALL_COMMAND  echo "Mmg installation DISABLED"
     CMAKE_ARGS ${MMG_ARGS} -DUSE_ELAS=OFF ${COMPILER_CFG} ${FLAGS_CFG}
     ${SCOTCH_CFG} ${VTK_CFG} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
